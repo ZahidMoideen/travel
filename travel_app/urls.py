@@ -22,7 +22,6 @@ urlpatterns = (
     [
     path('admin/', admin.site.urls),
     path('',include('destinations.urls')),
-    path('api-token-auth/',obtain_auth_token, name='api_token_auth'),
 
     
     ]

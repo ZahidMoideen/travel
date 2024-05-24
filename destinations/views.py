@@ -1,6 +1,7 @@
 from rest_framework import generics, permissions
+from django.contrib.auth.models import User
 from .models import Destination
-from .serializers import DestinationSerializer
+from .serializers import DestinationSerializer, UserSerializer
 from .views_base import BaseAPIView
 
 class DestinationListCreate(BaseAPIView, generics.ListCreateAPIView):
@@ -34,5 +35,16 @@ class DestinationRetrieveUpdateDestroy(BaseAPIView, generics.RetrieveUpdateDestr
     def destroy(self, request, *args, **kwargs):
         try:
             return super().destroy(request, *args, **kwargs)
+        except Exception as e:
+            return self.handle_exception(e)
+
+class UserCreate(BaseAPIView, generics.CreateAPIView):
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
+    permission_classes = [permissions.AllowAny]
+
+    def create(self, request, *args, **kwargs):
+        try:
+            return super().create(request, *args, **kwargs)
         except Exception as e:
             return self.handle_exception(e)
