@@ -3,15 +3,20 @@ from django.contrib.auth.models import User
 from .models import Destination
 from .serializers import DestinationSerializer, UserSerializer
 from .views_base import BaseAPIView
-from rest_framework.authtoken.views import ObtainAuthToken
 from rest_framework.response import Response
-from rest_framework.status import HTTP_200_OK, HTTP_400_BAD_REQUEST
+from rest_framework import status
 from rest_framework.views import APIView
+from rest_framework.authtoken.models import Token
+from rest_framework.authentication import TokenAuthentication
+from rest_framework.exceptions import AuthenticationFailed
+from django.contrib.auth import authenticate
+from rest_framework.permissions import IsAuthenticated
 
 class DestinationListCreate(BaseAPIView, generics.ListCreateAPIView):
     queryset = Destination.objects.all()
     serializer_class = DestinationSerializer
-    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    permission_classes = [permissions.IsAuthenticated]
+    authentication_classes = [TokenAuthentication]  
 
     def create(self, request, *args, **kwargs):
         try:
@@ -22,7 +27,8 @@ class DestinationListCreate(BaseAPIView, generics.ListCreateAPIView):
 class DestinationRetrieveUpdateDestroy(BaseAPIView, generics.RetrieveUpdateDestroyAPIView):
     queryset = Destination.objects.all()
     serializer_class = DestinationSerializer
-    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    permission_classes = [permissions.IsAuthenticated]
+    authentication_classes = [TokenAuthentication]  
 
     def retrieve(self, request, *args, **kwargs):
         try:
@@ -54,10 +60,31 @@ class UserCreate(BaseAPIView, generics.CreateAPIView):
             return self.handle_exception(e)
 
 class UserLogin(APIView):
+    permission_classes = [permissions.AllowAny]
+
     def post(self, request, *args, **kwargs):
-        obtain_auth_token = ObtainAuthToken()
-        serializer = obtain_auth_token.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        user = serializer.validated_data['user']
-        token, created = Token.objects.get_or_create(user=user)
-        return Response({'token': token.key, 'user_id': user.id}, status=HTTP_200_OK)
+        username = request.data.get('username')
+        password = request.data.get('password')
+        user = authenticate(username=username, password=password)
+        if user is not None:
+            token, created = Token.objects.get_or_create(user=user)
+            return Response({'token': token.key, 'user_id': user.id}, status=status.HTTP_200_OK)
+        else:
+            raise AuthenticationFailed('Invalid username or password')
+
+
+class UserLogout(APIView):
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        try:
+            
+            token = Token.objects.get(user=request.user)
+            token.delete()
+            return Response({'detail': 'Logout successful'}, status=status.HTTP_200_OK)
+        except Token.DoesNotExist:
+            
+            return Response({'detail': 'User is already logged out'}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({'detail': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
